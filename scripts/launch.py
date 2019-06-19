@@ -5,7 +5,7 @@ import os
 import click
 
 AMI_MAP = {
-    "us-west-1": "FILL IN YOUR AMI HERE",
+    "us-east-2": os.environ.get("AWS_AMI", None),
 }
 
 
@@ -44,7 +44,7 @@ def upload_archive(exp_name, archive_excludes, s3_bucket):
     # Construct remote path to place the archive on S3
     with open(local_archive_path, 'rb') as f:
         archive_hash = hashlib.sha224(f.read()).hexdigest()
-    remote_archive_path = '{}/{}_{}.tar.gz'.format(s3_bucket, exp_name, archive_hash)
+    remote_archive_path = 's3://{}/{}_{}.tar.gz'.format(s3_bucket, exp_name, archive_hash)
 
     # Upload
     upload_cmd = ["aws", "s3", "cp", local_archive_path, remote_archive_path]
@@ -208,6 +208,8 @@ def main(exp_files,
         highlight("code_url: " + code_url)
 
         image_id = AMI_MAP[region_name]
+        if image_id is None:
+            image_id = os.environ.get("AWS_AMI", None)
         highlight('Using AMI: {}'.format(image_id))
 
         if spot_master:

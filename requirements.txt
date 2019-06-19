@@ -13,3 +13,4 @@ requests>=2.20.0
 six==1.10.0
 tensorflow==0.12.1
 Werkzeug==0.12.1
+boto3==1.9

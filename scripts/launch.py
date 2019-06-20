@@ -72,7 +72,7 @@ done
 def make_download_and_run_script(code_url, cmd):
     return """su -l ubuntu <<'EOF'
 set -x
-cd ~
+cd ~/Git/neuroevolved-agents/
 wget --quiet "{code_url}" -O code.tar.gz
 tar xvaf code.tar.gz
 rm code.tar.gz

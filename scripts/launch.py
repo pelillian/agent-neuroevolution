@@ -107,7 +107,6 @@ systemctl restart redis
 @click.option('--aws_access_key_id', default=os.environ.get("AWS_ACCESS_KEY", None))
 @click.option('--aws_secret_access_key', default=os.environ.get("AWS_ACCESS_SECRET", None))
 @click.option('--archive_excludes', default=(".git", "__pycache__", ".idea", "scratch"))
-@click.option('--s3_bucket')
 @click.option('--spot_price')
 @click.option('--region_name')
 @click.option('--zone')
@@ -123,7 +122,6 @@ def main(exp_files,
          aws_access_key_id,
          aws_secret_access_key,
          archive_excludes,
-         s3_bucket,
          spot_price,
          region_name,
          zone,

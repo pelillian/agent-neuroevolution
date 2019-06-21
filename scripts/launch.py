@@ -15,48 +15,6 @@ def highlight(x):
     click.secho(x, fg='green')
 
 
-def upload_archive(exp_name, archive_excludes, s3_bucket):
-    import hashlib, os.path as osp, subprocess, tempfile, uuid, sys
-
-    # Archive this package
-    thisfile_dir = osp.dirname(osp.abspath(__file__))
-    pkg_parent_dir = osp.abspath(osp.join(thisfile_dir, '..', '..'))
-    pkg_subdir = osp.basename(osp.abspath(osp.join(thisfile_dir, '..')))
-    assert osp.abspath(__file__) == osp.join(pkg_parent_dir, pkg_subdir, 'scripts', 'launch.py'), 'You moved me!'
-
-    # Run tar
-    tmpdir = tempfile.TemporaryDirectory()
-    local_archive_path = osp.join(tmpdir.name, '{}.tar.gz'.format(uuid.uuid4()))
-    tar_cmd = ["tar", "-zcvf", local_archive_path, "-C", pkg_parent_dir]
-    for pattern in archive_excludes:
-        tar_cmd += ["--exclude", pattern]
-    tar_cmd += ["-h", pkg_subdir]
-    highlight(" ".join(tar_cmd))
-
-    if sys.platform == 'darwin':
-        # Prevent Mac tar from adding ._* files
-        env = os.environ.copy()
-        env['COPYFILE_DISABLE'] = '1'
-        subprocess.check_call(tar_cmd, env=env)
-    else:
-        subprocess.check_call(tar_cmd)
-
-    # Construct remote path to place the archive on S3
-    with open(local_archive_path, 'rb') as f:
-        archive_hash = hashlib.sha224(f.read()).hexdigest()
-    remote_archive_path = 's3://{}/{}_{}.tar.gz'.format(s3_bucket, exp_name, archive_hash)
-
-    # Upload
-    upload_cmd = ["aws", "s3", "cp", local_archive_path, remote_archive_path]
-    highlight(" ".join(upload_cmd))
-    subprocess.check_call(upload_cmd)
-
-    presign_cmd = ["aws", "s3", "presign", remote_archive_path, "--expires-in", str(604800)]
-    highlight(" ".join(presign_cmd))
-    remote_url = subprocess.check_output(presign_cmd).decode("utf-8").strip()
-    return remote_url
-
-
 def make_disable_hyperthreading_script():
     return """
 # disable hyperthreading
@@ -69,20 +27,19 @@ done
 """
 
 
-def make_download_and_run_script(code_url, cmd):
+def make_download_and_run_script(cmd):
     return """su -l ubuntu <<'EOF'
 set -x
 cd ~/Git/neuroevolved-agents/
-wget --quiet "{code_url}" -O code.tar.gz
-tar xvaf code.tar.gz
-rm code.tar.gz
+git pull
+. env/bin/activate
 cd es-distributed
 {cmd}
 EOF
-""".format(code_url=code_url, cmd=cmd)
+""".format(cmd=cmd)
 
 
-def make_master_script(code_url, exp_str):
+def make_master_script(exp_str):
     cmd = """
 cat > ~/experiment.json <<< '{exp_str}'
 python -m es_distributed.main master \
@@ -110,10 +67,10 @@ systemctl restart redis
 
 %s
 } >> /home/ubuntu/user_data.log 2>&1
-""" % (make_disable_hyperthreading_script(), make_download_and_run_script(code_url, cmd))
+""" % (make_disable_hyperthreading_script(), make_download_and_run_script(cmd))
 
 
-def make_worker_script(code_url, master_private_ip):
+def make_worker_script(master_private_ip):
     cmd = ("MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "
            "python -m es_distributed.main workers "
            "--master_host {} "
@@ -138,7 +95,7 @@ systemctl restart redis
 
 %s
 } >> /home/ubuntu/user_data.log 2>&1
-""" % (make_disable_hyperthreading_script(), make_download_and_run_script(code_url, cmd))
+""" % (make_disable_hyperthreading_script(), make_download_and_run_script(cmd))
 
 
 @click.command()
@@ -204,9 +161,6 @@ def main(exp_files,
 
         exp_name = '{}_{}'.format(exp_prefix, datetime.datetime.now().strftime('%Y%m%d-%H%M%S'))
 
-        code_url = upload_archive(exp_name, archive_excludes, s3_bucket)
-        highlight("code_url: " + code_url)
-
         image_id = AMI_MAP[region_name]
         if image_id is None:
             image_id = os.environ.get("AWS_AMI", None)
@@ -226,7 +180,7 @@ def main(exp_files,
                     Placement=dict(
                         AvailabilityZone=zone,
                     ),
-                    UserData=base64.b64encode(make_master_script(code_url, exp_str).encode()).decode()
+                    UserData=base64.b64encode(make_master_script(exp_str).encode()).decode()
                 )
             )['SpotInstanceRequests']
             assert len(requests) == 1
@@ -249,7 +203,7 @@ def main(exp_files,
                 Placement=dict(
                     AvailabilityZone=zone,
                 ),
-                UserData=make_master_script(code_url, exp_str)
+                UserData=make_master_script(exp_str)
             )[0]
         master_instance.create_tags(
             Tags=[
@@ -268,7 +222,7 @@ def main(exp_files,
             EbsOptimized=True,
             SecurityGroups=[security_group],
             LaunchConfigurationName=exp_name,
-            UserData=make_worker_script(code_url, master_instance.private_ip_address),
+            UserData=make_worker_script(master_instance.private_ip_address),
             SpotPrice=spot_price,
         )
         assert config_resp["ResponseMetadata"]["HTTPStatusCode"] == 200

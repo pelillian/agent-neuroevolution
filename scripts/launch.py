@@ -46,7 +46,7 @@ python -m es_distributed.main master \
     --master_socket_path /var/run/redis/redis.sock \
     --log_dir ~ \
     --exp_file ~/experiment.json \
-    --algo {algo}
+    --algo {algo} 
     """.format(exp_str=exp_str, algo=algo)
     return """#!/bin/bash
 {
@@ -75,7 +75,7 @@ def make_worker_script(master_private_ip, algo):
     cmd = ("MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "
            "python -m es_distributed.main workers "
            "--master_host {} "
-           "--algo {}"
+           "--algo {} "
            "--relay_socket_path /var/run/redis/redis.sock").format(master_private_ip, algo)
     return """#!/bin/bash
 {

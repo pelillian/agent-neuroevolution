@@ -39,14 +39,15 @@ EOF
 """.format(cmd=cmd)
 
 
-def make_master_script(exp_str):
+def make_master_script(exp_str, algo):
     cmd = """
 cat > ~/experiment.json <<< '{exp_str}'
 python -m es_distributed.main master \
     --master_socket_path /var/run/redis/redis.sock \
     --log_dir ~ \
-    --exp_file ~/experiment.json
-    """.format(exp_str=exp_str)
+    --exp_file ~/experiment.json \
+    --algo {algo}
+    """.format(exp_str=exp_str, algo=algo)
     return """#!/bin/bash
 {
 set -x
@@ -70,11 +71,12 @@ systemctl restart redis
 """ % (make_disable_hyperthreading_script(), make_download_and_run_script(cmd))
 
 
-def make_worker_script(master_private_ip):
+def make_worker_script(master_private_ip, algo):
     cmd = ("MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "
            "python -m es_distributed.main workers "
            "--master_host {} "
-           "--relay_socket_path /var/run/redis/redis.sock").format(master_private_ip)
+           "--algo {}"
+           "--relay_socket_path /var/run/redis/redis.sock").format(master_private_ip, algo)
     return """#!/bin/bash
 {
 set -x
@@ -100,6 +102,7 @@ systemctl restart redis
 
 @click.command()
 @click.argument('exp_files', nargs=-1, type=click.Path(), required=True)
+@click.option('--algorithm', required=True)
 @click.option('--key_name', default=lambda: os.environ["KEY_NAME"])
 @click.option('--aws_access_key_id', default=os.environ.get("AWS_ACCESS_KEY", None))
 @click.option('--aws_secret_access_key', default=os.environ.get("AWS_ACCESS_SECRET", None))
@@ -115,6 +118,7 @@ systemctl restart redis
 @click.option('--security_group')
 @click.option('--yes', is_flag=True, help='Skip confirmation prompt')
 def main(exp_files,
+         algorithm,
          key_name,
          aws_access_key_id,
          aws_secret_access_key,
@@ -180,7 +184,7 @@ def main(exp_files,
                     Placement=dict(
                         AvailabilityZone=zone,
                     ),
-                    UserData=base64.b64encode(make_master_script(exp_str).encode()).decode()
+                    UserData=base64.b64encode(make_master_script(exp_str, algorithm).encode()).decode()
                 )
             )['SpotInstanceRequests']
             assert len(requests) == 1
@@ -203,7 +207,7 @@ def main(exp_files,
                 Placement=dict(
                     AvailabilityZone=zone,
                 ),
-                UserData=make_master_script(exp_str)
+                UserData=make_master_script(exp_str, algorithm)
             )[0]
         master_instance.create_tags(
             Tags=[
@@ -222,7 +226,7 @@ def main(exp_files,
             EbsOptimized=True,
             SecurityGroups=[security_group],
             LaunchConfigurationName=exp_name,
-            UserData=make_worker_script(master_instance.private_ip_address),
+            UserData=make_worker_script(master_instance.private_ip_address, algorithm),
             SpotPrice=spot_price,
         )
         assert config_resp["ResponseMetadata"]["HTTPStatusCode"] == 200

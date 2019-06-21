@@ -36,7 +36,7 @@ def import_algo(name):
     elif name == 'rs':
         from . import rs as algo
     else:
-        raise NotImplementedError()
+        raise NotImplementedError("Unknown algorithm {}".format(name))
     return algo
 
 @cli.command()

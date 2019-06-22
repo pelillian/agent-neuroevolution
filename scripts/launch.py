@@ -236,6 +236,7 @@ def main(exp_files,
             MaxSize=cluster_size,
             DesiredCapacity=cluster_size,
             AvailabilityZones=[zone],
+            DefaultCooldown=0,
             Tags=[
                 dict(Key="Name", Value=exp_name + "-worker"),
                 dict(Key="es_dist_role", Value="worker"),

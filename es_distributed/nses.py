@@ -223,7 +223,7 @@ def run_master(master_redis_cfg, log_dir, exp):
         else:
             raise NotImplementedError(config.return_proc_mode)
 
-        if algo_type  == "nsr":
+        if algo_type  == "nsr-es":
             rew_ranks = compute_centered_ranks(returns_n2)
             proc_returns_n2 = (rew_ranks + proc_returns_n2) / 2.0
 

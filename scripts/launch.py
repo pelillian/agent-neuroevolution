@@ -106,7 +106,7 @@ systemctl restart redis
 @click.option('--key_name', default=lambda: os.environ["KEY_NAME"])
 @click.option('--aws_access_key_id', default=os.environ.get("AWS_ACCESS_KEY", None))
 @click.option('--aws_secret_access_key', default=os.environ.get("AWS_ACCESS_SECRET", None))
-@click.option('--archive_excludes', default=(".git", "__pycache__", ".idea", "scratch"))
+@click.option('--archive_excludes', default=(".git", "__pycache__", ".idea", "scratch", "run"))
 @click.option('--spot_price')
 @click.option('--region_name')
 @click.option('--zone')

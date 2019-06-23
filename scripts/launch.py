@@ -102,7 +102,7 @@ systemctl restart redis
 
 @click.command()
 @click.argument('exp_files', nargs=-1, type=click.Path(), required=True)
-@click.option('--algorithm', required=True)
+@click.option('--algorithm')
 @click.option('--key_name', default=lambda: os.environ["KEY_NAME"])
 @click.option('--aws_access_key_id', default=os.environ.get("AWS_ACCESS_KEY", None))
 @click.option('--aws_secret_access_key', default=os.environ.get("AWS_ACCESS_SECRET", None))
@@ -159,6 +159,8 @@ def main(exp_files,
             click.confirm('Continue?', abort=True)
 
         exp_prefix = exp['exp_prefix']
+        if 'algo_type' in exp:
+            algorithm = exp['algo_type']
         exp_str = json.dumps(exp)
 
         exp_name = '{}_{}'.format(exp_prefix, datetime.datetime.now().strftime('%Y%m%d-%H%M%S'))

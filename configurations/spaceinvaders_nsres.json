@@ -16,7 +16,7 @@
   "novelty_search": {
     "k": 10,
     "population_size": 5,
-    "num_rollouts": 5,
+    "num_rollouts": 1,
     "selection_method": "novelty_prob"
   },
   "optimizer": {

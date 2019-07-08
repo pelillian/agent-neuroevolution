@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.layers as layers
 
-from . import tf_util as U
+from . import tf_util
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +20,8 @@ class Policy:
 
         self.trainable_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.scope.name)
         self.num_params = sum(int(np.prod(v.get_shape().as_list())) for v in self.trainable_variables)
-        self._setfromflat = U.SetFromFlat(self.trainable_variables)
-        self._getflat = U.GetFlat(self.trainable_variables)
+        self._setfromflat = tf_util.SetFromFlat(self.trainable_variables)
+        self._getflat = tf_util.GetFlat(self.trainable_variables)
 
         logger.info('Trainable variables ({} parameters)'.format(self.num_params))
         for v in self.trainable_variables:
@@ -33,7 +33,7 @@ class Policy:
             logger.info('- {} shape:{} size:{}'.format(v.name, shp, np.prod(shp)))
 
         placeholders = [tf.placeholder(v.value().dtype, v.get_shape().as_list()) for v in self.all_variables]
-        self.set_all_vars = U.function(
+        self.set_all_vars = tf_util.function(
             inputs=placeholders,
             outputs=[],
             updates=[tf.group(*[v.assign(p) for v, p in zip(self.all_variables, placeholders)])]
@@ -114,7 +114,7 @@ class Policy:
 
 
 def bins(x, dim, num_bins, name):
-    scores = U.dense(x, dim * num_bins, name, U.normc_initializer(0.01))
+    scores = tf_util.dense(x, dim * num_bins, name, tf_util.normc_initializer(0.01))
     scores_nab = tf.reshape(scores, [-1, dim, num_bins])
     return tf.argmax(scores_nab, 2)  # 0 ... num_bins-1
 
@@ -131,7 +131,7 @@ class MujocoPolicy(Policy):
         assert np.all(np.isfinite(self.ac_space.low)) and np.all(np.isfinite(self.ac_space.high)), \
             'Action bounds required'
 
-        self.nonlin = {'tanh': tf.tanh, 'relu': tf.nn.relu, 'lrelu': U.lrelu, 'elu': tf.nn.elu}[nonlin_type]
+        self.nonlin = {'tanh': tf.tanh, 'relu': tf.nn.relu, 'lrelu': tf_util.lrelu, 'elu': tf.nn.elu}[nonlin_type]
 
         with tf.variable_scope(type(self).__name__) as scope:
             # Observation normalization
@@ -141,7 +141,7 @@ class MujocoPolicy(Policy):
                 'ob_std', ob_space.shape, tf.float32, tf.constant_initializer(np.nan), trainable=False)
             in_mean = tf.placeholder(tf.float32, ob_space.shape)
             in_std = tf.placeholder(tf.float32, ob_space.shape)
-            self._set_ob_mean_std = U.function([in_mean, in_std], [], updates=[
+            self._set_ob_mean_std = tf_util.function([in_mean, in_std], [], updates=[
                 tf.assign(ob_mean, in_mean),
                 tf.assign(ob_std, in_std),
             ])
@@ -149,7 +149,7 @@ class MujocoPolicy(Policy):
             # Policy network
             o = tf.placeholder(tf.float32, [None] + list(ob_space.shape))
             a = self._make_net(tf.clip_by_value((o - ob_mean) / ob_std, -5.0, 5.0))
-            self._act = U.function([o], a)
+            self._act = tf_util.function([o], a)
         return scope
 
     def _make_net(self, o):
@@ -157,7 +157,7 @@ class MujocoPolicy(Policy):
         if self.connection_type == 'ff':
             x = o
             for ilayer, hd in enumerate(self.hidden_dims):
-                x = self.nonlin(U.dense(x, hd, 'l{}'.format(ilayer), U.normc_initializer(1.0)))
+                x = self.nonlin(tf_util.dense(x, hd, 'l{}'.format(ilayer), tf_util.normc_initializer(1.0)))
         else:
             raise NotImplementedError(self.connection_type)
 
@@ -193,7 +193,7 @@ class MujocoPolicy(Policy):
                 ])  # (n,a,2)
             )  # (n,a)
         elif ac_bin_mode == 'continuous':
-            a = U.dense(x, adim, 'out', U.normc_initializer(0.01))
+            a = tf_util.dense(x, adim, 'out', tf_util.normc_initializer(0.01))
         else:
             raise NotImplementedError(ac_bin_mode)
 
@@ -313,7 +313,7 @@ class ESAtariPolicy(Policy):
             is_ref_ph = tf.placeholder(tf.bool, shape=[])
 
             a = self._make_net(o, is_ref_ph)
-            self._act = U.function([o, is_ref_ph] , a)
+            self._act = tf_util.function([o, is_ref_ph] , a)
         return scope
 
     def _make_net(self, o, is_ref):
@@ -436,25 +436,25 @@ class GAAtariPolicy(Policy):
         self.ac_space = ac_space
         self.ac_init_std = ac_init_std
         self.num_actions = self.ac_space.n
-        self.nonlin = {'tanh': tf.tanh, 'relu': tf.nn.relu, 'lrelu': U.lrelu, 'elu': tf.nn.elu}[nonlin_type]
+        self.nonlin = {'tanh': tf.tanh, 'relu': tf.nn.relu, 'lrelu': tf_util.lrelu, 'elu': tf.nn.elu}[nonlin_type]
 
 
         with tf.variable_scope(type(self).__name__) as scope:
             o = tf.placeholder(tf.float32, [None] + list(self.ob_space_shape))
 
             a = self._make_net(o)
-            self._act = U.function([o] , a)
+            self._act = tf_util.function([o] , a)
         return scope
 
     def _make_net(self, o):
         x = o
-        x = self.nonlin(U.conv(x, name='conv1', num_outputs=16, kernel_size=8, stride=4, std=1.0))
-        x = self.nonlin(U.conv(x, name='conv2', num_outputs=32, kernel_size=4, stride=2, std=1.0))
+        x = self.nonlin(tf_util.conv(x, name='conv1', num_outputs=16, kernel_size=8, stride=4, std=1.0))
+        x = self.nonlin(tf_util.conv(x, name='conv2', num_outputs=32, kernel_size=4, stride=2, std=1.0))
 
-        x = U.flattenallbut0(x)
-        x = self.nonlin(U.dense(x, 256, 'fc', U.normc_initializer(1.0), std=1.0))
+        x = tf_util.flattenallbut0(x)
+        x = self.nonlin(tf_util.dense(x, 256, 'fc', tf_util.normc_initializer(1.0), std=1.0))
 
-        a = U.dense(x, self.num_actions, 'out', U.normc_initializer(self.ac_init_std), std=self.ac_init_std)
+        a = tf_util.dense(x, self.num_actions, 'out', tf_util.normc_initializer(self.ac_init_std), std=self.ac_init_std)
 
         return tf.argmax(a,1)
 

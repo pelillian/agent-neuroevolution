@@ -15,7 +15,7 @@
   "algo_type": "nsr-es",
   "novelty_search": {
     "k": 10,
-    "population_size": 5,
+    "population_size": 2,
     "num_rollouts": 1,
     "selection_method": "novelty_prob"
   },

@@ -166,7 +166,7 @@ def run_master(master_redis_cfg, log_dir, exp):
                 optimizer = optimizers[env_i][curr_parent]
 
                 if policy.needs_ob_stat:
-                    ob_stat = deepcopy(obstat_dict[env_i][curr_parent])
+                    ob_stat = deepcopy(obstats[env_i][curr_parent])
 
                 assert theta.dtype == np.float32
 
@@ -327,16 +327,16 @@ def run_master(master_redis_cfg, log_dir, exp):
                 tlogger.dump_tabular()
 
                 #updating population parameters
-                theta_dict[env_i][curr_parent] = policy.get_trainable_flat()
-                optimizer_dict[env_i][curr_parent] = optimizer
+                thetas[env_i][curr_parent] = policy.get_trainable_flat()
+                optimizers[env_i][curr_parent] = optimizer
                 if policy.needs_ob_stat:
-                    obstat_dict[env_i][curr_parent] = ob_stat
+                    obstats[env_i][curr_parent] = ob_stat
 
                 if exp['novelty_search']['selection_method'] == "novelty_prob":
                     novelty_probs = []
                     archive = master.get_archive()
                     for p in range(pop_size):
-                        policy.set_trainable_flat(theta_dict[p])
+                        policy.set_trainable_flat(thetas[p])
                         mean_bc = get_mean_bc(env, policy, tslimit_max, num_rollouts)
                         nov_p = compute_novelty_vs_archive(archive, mean_bc, exp['novelty_search']['k'])
                         novelty_probs.append(nov_p)

@@ -336,7 +336,7 @@ def run_master(master_redis_cfg, log_dir, exp):
                     novelty_probs = []
                     archive = master.get_archive()
                     for p in range(pop_size):
-                        policy.set_trainable_flat(thetas[p])
+                        policy.set_trainable_flat(thetas[env_i][p])
                         mean_bc = get_mean_bc(env, policy, tslimit_max, num_rollouts)
                         nov_p = compute_novelty_vs_archive(archive, mean_bc, exp['novelty_search']['k'])
                         novelty_probs.append(nov_p)

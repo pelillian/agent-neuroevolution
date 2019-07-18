@@ -12,6 +12,6 @@ pip install gym[atari]
 
 sudo apt install redis-server
 . scripts/local_run_redis.sh
-. scripts/local_run_exp.sh nsr-es configurations/spaceinvaders_nsres.json 40
+. scripts/local_run_exp.sh nsr-es configurations/multienv_nsres.json 72
 
 ```

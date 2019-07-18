@@ -350,7 +350,7 @@ def run_master(master_redis_cfg, log_dir, exp):
 
                 if config.snapshot_freq != 0 and curr_task_id % config.snapshot_freq == 0:
                     import os.path as osp
-                    filename = '{}_snapshot_iter{:05d}_rew{}.h5'.format(
+                    filename = '{}_iter{:05d}_rew{}.h5'.format(
                         env.unwrapped.spec.id,
                         curr_task_id,
                         np.nan if not eval_rets else int(np.mean(eval_rets))

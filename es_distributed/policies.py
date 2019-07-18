@@ -248,13 +248,11 @@ class MujocoPolicy(Policy):
         if ob_stat is not None:
             ob_stat.set_from_init(init_mean, init_std, init_count=1e5)
 
-
     def _get_pos(self, model):
         mass = model.body_mass
         xpos = model.data.xipos
         center = (np.sum(mass * xpos, 0) / np.sum(mass))
         return center[0], center[1], center[2]
-
 
     def rollout(self, env, *, render=False, timestep_limit=None, save_obs=False, random_stream=None, policy_seed=None, bc_choice=None):
         """
@@ -374,7 +372,6 @@ class ESAtariPolicy(Policy):
     def act(self, train_vars, random_stream=None):
         return self._act(*train_vars)
 
-
     def rollout(self, env, *, render=False, timestep_limit=None, save_obs=False, random_stream=None, worker_stats=None, policy_seed=None):
         """
         If random_stream is provided, the rollout will take noisy actions with noise drawn from that stream.
@@ -427,7 +424,6 @@ class ESAtariPolicy(Policy):
         if save_obs:
             return rews, t, np.array(obs), np.array(novelty_vector)
         return rews, t, np.array(novelty_vector)
-
 
 
 class GAAtariPolicy(Policy):
@@ -511,4 +507,3 @@ class GAAtariPolicy(Policy):
         if save_obs:
             return rews, t, np.array(obs), np.array(novelty_vector)
         return rews, t, np.array(novelty_vector)
-

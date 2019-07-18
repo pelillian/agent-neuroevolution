@@ -11,7 +11,7 @@
     "episode_cutoff_mode": "env_default"
   },
   "env_id": "Humanoid-v1",
-  "algo_type": "ns",
+  "algo_type": "ns-es",
   "exp_prefix": "humanoid",
   "novelty_search": {
     "k": 10,

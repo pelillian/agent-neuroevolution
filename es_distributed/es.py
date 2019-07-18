@@ -14,12 +14,12 @@ Config = namedtuple('Config', [
     'calc_obstat_prob', 'eval_prob', 'snapshot_freq',
     'return_proc_mode', 'episode_cutoff_mode'
 ])
-Task = namedtuple('Task', ['params', 'ob_mean', 'ob_std', 'ref_batch', 'timestep_limit'])
+Task = namedtuple('Task', ['params', 'ob_mean', 'ob_std', 'ref_batch', 'timestep_limit', 'env_id'])
 Result = namedtuple('Result', [
     'worker_id',
     'noise_inds_n', 'returns_n2', 'signreturns_n2', 'lengths_n2',
     'eval_return', 'eval_length',
-    'ob_sum', 'ob_sumsq', 'ob_count'
+    'ob_sum', 'ob_sumsq', 'ob_count', 'env_id'
 ])
 
 

@@ -10,4 +10,5 @@ gym_tensorflow.so
 run*/
 .idea/
 log.txt
+.*.swp
 

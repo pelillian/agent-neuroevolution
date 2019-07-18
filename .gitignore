@@ -9,3 +9,5 @@ mujoco/mjpro131
 gym_tensorflow.so
 run*/
 .idea/
+log.txt
+

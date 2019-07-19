@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from collections import namedtuple
 import tensorflow as tf
@@ -97,7 +98,7 @@ def run_master(master_redis_cfg, log_dir, exp):
         tslimit, incr_tslimit_threshold, tslimit_incr_ratio, tslimit_max = int(arg0), float(arg1), float(arg2), float(arg3)
         adaptive_tslimit = True
         logger.info(
-            'Starting timestep limit set to {}. When {}% of rollouts hit the limit, it will be increased by {}. The maximum timestep limit is {}'.format(
+            'Starting timestep limit set to {}. When {}% of rollouts hit the limit, it will be increased by {}. Maximum timestep limit: {}'.format(
                 tslimit, incr_tslimit_threshold * 100, tslimit_incr_ratio, tslimit_max))
 
     elif config.episode_cutoff_mode == 'env_default':
@@ -154,7 +155,9 @@ def run_master(master_redis_cfg, log_dir, exp):
 
     master.declare_experiment(exp)
 
+    task_counter = -1
     while True:
+        task_counter += 1
         for env_i, env in enumerate(envs):
             with sessions[env_i][curr_parent].as_default():
                 step_tstart = time.time()
@@ -348,13 +351,15 @@ def run_master(master_redis_cfg, log_dir, exp):
                 else:
                     raise NotImplementedError(exp['novelty_search']['selection_method'])
 
-                if config.snapshot_freq != 0 and curr_task_id % config.snapshot_freq == 0:
+                if config.snapshot_freq != 0 and task_counter % config.snapshot_freq == 0:
                     import os.path as osp
                     filename = '{}_iter{:05d}_rew{}.h5'.format(
                         env.unwrapped.spec.id,
-                        curr_task_id,
+                        task_counter,
                         np.nan if not eval_rets else int(np.mean(eval_rets))
                     )
+                    os.makedirs(dir, exist_ok=True)
+                    filename = os.path.join(log_dir, filename)
                     assert not osp.exists(filename)
                     policy.save(filename)
                     tlogger.log('Saved snapshot {}'.format(filename))

@@ -1,3 +1,4 @@
+from datetime import datetime
 import errno
 import json
 import logging
@@ -55,7 +56,8 @@ def master(algo, exp_str, exp_file, master_socket_path, log_dir):
             exp = json.loads(f.read())
     else:
         assert False
-    log_dir = os.path.expanduser(log_dir) if log_dir else '/tmp/es_master_{}'.format(os.getpid())
+    dt = datetime.today().strftime('%Y-%m-%d-%H:%M:%S')
+    log_dir = os.path.expanduser(log_dir) if log_dir else os.path.join('run', '{}_{}'.format(dt, os.getpid()))
     mkdir_p(log_dir)
     algo = import_algo(algo)
     algo.run_master({'unix_socket_path': master_socket_path}, log_dir, exp)

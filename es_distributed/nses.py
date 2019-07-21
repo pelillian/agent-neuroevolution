@@ -358,7 +358,7 @@ def run_master(master_redis_cfg, log_dir, exp):
                         task_counter,
                         np.nan if not eval_rets else int(np.mean(eval_rets))
                     )
-                    os.makedirs(dir, exist_ok=True)
+                    os.makedirs(log_dir, exist_ok=True)
                     filename = os.path.join(log_dir, filename)
                     assert not osp.exists(filename)
                     policy.save(filename)

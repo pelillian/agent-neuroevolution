@@ -15,3 +15,6 @@ sudo apt install redis-server
 . scripts/local_run_exp.sh nsr-es configurations/multienv_nsres.json 72
 
 ```
+
+Temporarily, neuroevolved-agents requires the following change to the gym package:
+In gym/envs/atari/atari_env.py (line 49) change `self._action_set = self.ale.getMinimalActionSet()` to `self._action_set = self.ale.getLegalActionSet()`

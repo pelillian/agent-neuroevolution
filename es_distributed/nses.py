@@ -81,16 +81,22 @@ def run_master(master_redis_cfg, log_dir, exp):
     master = MasterClient(master_redis_cfg)
     noise = SharedNoiseTable()
     rs = np.random.RandomState()
-    ref_batch = get_ref_batch(envs[0], batch_size=128)
+
+    ref_batch = []  # instead of only one env in the ref batch, let's use all of them
+    ref_batch_size = 128  # maybe make this larger if you have many envs?
+    bins = np.histogram(np.arange(ref_batch_size, dtype=int), bins=len(envs))[0]
+    assert sum(bins) == ref_batch_size
+    for env, b in zip(envs, bins):
+        ref_batch.extend(get_ref_batch(env, batch_size=b))
 
     pop_size = int(exp['novelty_search']['population_size'])
     num_rollouts = int(exp['novelty_search']['num_rollouts'])
-    thetas = []
-    optimizers = []
-    obstats = []
+    theta_dict = {}
+    optimizer_dict = {}
+    #obstat_dict = {}
     curr_parent = 0
-    policies = []
-    sessions = []
+    policy_dict = {}
+    session_dict = {}
 
     if isinstance(config.episode_cutoff_mode, int):
         tslimit, incr_tslimit_threshold, tslimit_incr_ratio, tslimit_max = config.episode_cutoff_mode, None, None, config.episode_cutoff_mode
@@ -113,45 +119,35 @@ def run_master(master_redis_cfg, log_dir, exp):
 
     logger.info('[master] Experiment {}'.format(pformat(exp)))
 
-    for env in envs:
-        graph_dict = {}
-        policy_dict = {}
-        theta_dict = {}
-        optimizer_dict = {}
-        obstat_dict = {}
-        session_dict = {}
-        for p in range(pop_size):
-            with tf.Graph().as_default():
-                sess, policy = setup_policy(env, exp, single_threaded=False)
-                session_dict[p] = sess
+    for p in range(pop_size):
+        with tf.Graph().as_default():
+            sess, policy = setup_policy(envs[0], exp, single_threaded=False)  # we only need the action space and the obs space so just use envs[0]
+            session_dict[p] = sess
 
-                if 'init_from' in exp['policy']:
-                    logger.info('Initializing weights from {}'.format(exp['policy']['init_from']))
-                    policy.initialize_from(exp['policy']['init_from'], ob_stat)
+            if 'init_from' in exp['policy']:
+                logger.info('Initializing weights from {}'.format(exp['policy']['init_from']))
+                policy.initialize_from(exp['policy']['init_from'], ob_stat)
 
-                theta = policy.get_trainable_flat()
-                optimizer = {'sgd': SGD, 'adam': Adam}[exp['optimizer']['type']](theta, **exp['optimizer']['args'])
+            theta = policy.get_trainable_flat()
+            optimizer = {'sgd': SGD, 'adam': Adam}[exp['optimizer']['type']](theta, **exp['optimizer']['args'])
 
-                if policy.needs_ob_stat:
-                    ob_stat = RunningStat(env.observation_space.shape, eps=1e-2)
-                    obstat_dict[p] = ob_stat
+            # obstats are needed for each env
+#            if policy.needs_ob_stat:
+#                ob_stat = RunningStat(envs[env_i].observation_space.shape, eps=1e-2)
+#                obstat_dict[p] = ob_stat
 
-                if policy.needs_ref_batch:
-                    policy.set_ref_batch(ref_batch)
+            if policy.needs_ref_batch:
+                policy.set_ref_batch(ref_batch)
 
+            for env in envs:
                 mean_bc = get_mean_bc(env, policy, tslimit_max, num_rollouts)
                 master.add_to_novelty_archive(mean_bc)
 
-                theta_dict[p] = theta
-                optimizer_dict[p] = optimizer
-                policy_dict[p] = policy
-        policies.append(policy_dict)
-        thetas.append(theta_dict)
-        optimizers.append(optimizer_dict)
-        obstats.append(obstat_dict)
-        sessions.append(session_dict)
+            theta_dict[p] = theta
+            optimizer_dict[p] = optimizer
+            policy_dict[p] = policy
 
-    assert policies
+    assert policy_dict
 
     episodes_so_far = 0
     timesteps_so_far = 0
@@ -163,17 +159,17 @@ def run_master(master_redis_cfg, log_dir, exp):
     while True:
         task_counter += 1
         for env_i, env in enumerate(envs):
-            with sessions[env_i][curr_parent].as_default():
+            with session_dict[curr_parent].as_default():
                 step_tstart = time.time()
 
-                policy = policies[env_i][curr_parent]
+                policy = policy_dict[curr_parent]
 
-                theta = thetas[env_i][curr_parent]
+                theta = theta_dict[curr_parent]
                 policy.set_trainable_flat(theta)
-                optimizer = optimizers[env_i][curr_parent]
+                optimizer = optimizer_dict[curr_parent]
 
-                if policy.needs_ob_stat:
-                    ob_stat = deepcopy(obstats[env_i][curr_parent])
+#                if policy.needs_ob_stat:
+#                    ob_stat = deepcopy(obstats[env_i][curr_parent])
 
                 assert theta.dtype == np.float32
 
@@ -334,16 +330,16 @@ def run_master(master_redis_cfg, log_dir, exp):
                 tlogger.dump_tabular()
 
                 #updating population parameters
-                thetas[env_i][curr_parent] = policy.get_trainable_flat()
-                optimizers[env_i][curr_parent] = optimizer
-                if policy.needs_ob_stat:
-                    obstats[env_i][curr_parent] = ob_stat
+                theta_dict[curr_parent] = policy.get_trainable_flat()
+                optimizer_dict[curr_parent] = optimizer
+#                if policy.needs_ob_stat:
+#                    obstats[env_i][curr_parent] = ob_stat
 
                 if exp['novelty_search']['selection_method'] == "novelty_prob":
                     novelty_probs = []
                     archive = master.get_archive()
                     for p in range(pop_size):
-                        policy.set_trainable_flat(thetas[env_i][p])
+                        policy.set_trainable_flat(theta_dict[p])
                         mean_bc = get_mean_bc(env, policy, tslimit_max, num_rollouts)
                         nov_p = compute_novelty_vs_archive(archive, mean_bc, exp['novelty_search']['k'])
                         novelty_probs.append(nov_p)
